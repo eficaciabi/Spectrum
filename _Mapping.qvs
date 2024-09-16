@@ -1,0 +1,15 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformación Mappings
+Desarrollador: 	María de los Ángeles Delgado
+Email:			maria_adelgado@eficacia.com.co
+Fecha			12/08/2024 'DD/MM/YYYY'
+Estado: 		Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Map_PrecioExhibicion:
+	Mapping
+		LOAD
+			[Subtipo Actividad],
+			Valor
+		FROM  [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Exhibiciones.qvd] 
+		(qvd);

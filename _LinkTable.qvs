@@ -1,0 +1,103 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion LinkTable
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			20/03/2020 'DD/MM/YYYY'
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+LinkTable_Tmp1:
+    LOAD DISTINCT
+        Agotados.Id_Sucursal                        as LinkTable.IdPuntoVenta,
+        Agotados.Id_Usuario                         as LinkTable.IdPersona,
+        Agotados.Id_Producto                        as LinkTable.Id_Producto,
+        Agotados.Fecha                              as LinkTable.Fecha
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Agotados_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+    LOAD DISTINCT
+        Precios.Id_Sucursal        	                as LinkTable.IdPuntoVenta,
+        Precios.Id_Usuario       	                as LinkTable.IdPersona,
+        Precios.Id_Producto       	                as LinkTable.Id_Producto,
+        Precios.Fecha             	                as LinkTable.Fecha
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Precios_$(Anno)$(Mes).qvd]
+    (qvd);
+
+/*---------*/
+NoConcatenate
+LinkTable_Tmp2:
+    LOAD DISTINCT
+        Actividades.Id_Sucursal       	            as LinkTable.IdPuntoVenta,
+        Actividades.Id_Usuario        	            as LinkTable.IdPersona,
+        Actividades.Fecha             	            as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Actividades_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+    LOAD DISTINCT
+        ExhibicionesAdicionales.Id_Sucursal         as LinkTable.IdPuntoVenta,
+        ExhibicionesAdicionales.Id_Usuario          as LinkTable.IdPersona,
+        ExhibicionesAdicionales.Fecha               as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_ExhibicionesAdicionales_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+    LOAD DISTINCT
+        Participacion.Id_Sucursal                   as LinkTable.IdPuntoVenta,
+        Participacion.Id_Usuario                    as LinkTable.IdPersona,
+        Participacion.Fecha                         as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Participacion_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+    LOAD DISTINCT
+        Cobertura.IdPuntoVenta                      as LinkTable.IdPuntoVenta,
+        Cobertura.IdPersona                         as LinkTable.IdPersona,
+        Cobertura.Fecha                             as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Cobertura_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+    LOAD DISTINCT
+        Bitacora.Id_Sucursal                        as LinkTable.IdPuntoVenta,
+        Bitacora.Id_Usuario                         as LinkTable.IdPersona,
+        Bitacora.Fecha                              as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Encuesta_Bitacoras_$(Anno)$(Mes).qvd]
+    (qvd);
+
+/*---------*/
+NoConcatenate
+LinkTable_Tmp:
+    LOAD Distinct
+        LinkTable.Fecha,
+        LinkTable.IdPuntoVenta,
+        LinkTable.IdPersona,
+        LinkTable.Id_Producto
+    Resident LinkTable_Tmp1; 
+    Drop Table LinkTable_Tmp1;
+
+outer join (LinkTable_Tmp)
+    LOAD Distinct
+        LinkTable.Fecha,
+        LinkTable.IdPuntoVenta,
+        LinkTable.IdPersona
+    Resident LinkTable_Tmp2; 
+    Drop Table LinkTable_Tmp2;
+
+/*---------*/
+NoConcatenate
+LinkTable:
+    LOAD
+        LinkTable.IdPuntoVenta&'-'&LinkTable.IdPersona&'-'&LinkTable.Fecha                              as CK.Key1,
+        LinkTable.IdPuntoVenta&'-'&LinkTable.IdPersona&'-'&LinkTable.Id_Producto&'-'&LinkTable.Fecha    as CK.Key2,
+        LinkTable.Fecha                                                                                 as SK.Fecha,
+        LinkTable.IdPuntoVenta                                                                          as SK.PuntoVenta,
+        LinkTable.IdPersona                                                                             as SK.Persona,
+        LinkTable.Id_Producto                                                                           as SK.Producto
+    Resident LinkTable_Tmp; 
+    Drop Table LinkTable_Tmp;
+
+STORE LinkTable INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_LinkTable_$(Anno)$(Mes).qvd];
+Drop Table LinkTable;

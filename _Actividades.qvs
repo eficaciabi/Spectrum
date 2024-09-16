@@ -1,0 +1,123 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformación Actividades
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			20/03/2020 'DD/MM/YYYY'
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Actividades_Tmp1:
+	LOAD 
+		EMPRESA					as Empresa,
+		CATEGORIA				as Categoria,
+		MARCA					as Marca,
+		TIPO_ACTIVIDAD			as Tipo_Actividad,
+		OBSERVACIONES			as Observaciones,
+		SUBTIPO_ACTIVIDAD		as Subtipo_Actividad,
+		ID_SUCURSAL				as Id_Sucursal,
+		ID_USUARIO				as Id_Usuario,
+		FECHA_VISITA			as _Fecha_Visita,
+		ID_REGISTRO				as ID_Registro,
+		NOMBRE_ARCHIVO			as Url_Captura
+	FROM [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Actividades_$(Anno)$(Mes)*.qvd]
+	(qvd);
+
+/*----------*/
+Map_SuptipoActividad:
+	Mapping
+		LOAD * INLINE [
+			OldValue,NewValue
+			OFERTA/PROMOCION,DESCUENTOS
+			BTL - ACTIVACIONES,DEMOSTRACIONES
+			EXHIBICIONES GRATIS,NUEVO POP DE PRODUCTO
+			TROPAS,TOMAS
+		];
+
+/*----------*/
+NoConcatenate
+Actividades_Tmp2:
+	LOAD
+	    Capitalize(Empresa)																							    as Empresa,
+		Capitalize(Categoria)																							as Categoria,
+		Capitalize(Marca)																								as Marca,
+		Capitalize(Tipo_Actividad)																						as Tipo_Actividad,
+		replace(Observaciones,Chr(10),' ')                                                                              as Observaciones,
+		Capitalize(Applymap('Map_SuptipoActividad', Subtipo_Actividad, Subtipo_Actividad))								as Subtipo_Actividad,
+		Id_Sucursal,
+		Id_Usuario,
+		Date(left(date(_Fecha_Visita,'DD/MM/YYYY'),10),'YYYY/MM/DD')							      					as Fecha,
+		ID_Registro,
+		'$(RutaServerUno)'&Date(_Fecha_Visita,'YYYY')&'/'&Date(_Fecha_Visita,'MM')&'/'&$(vCodCliente)&'/'&Url_Captura	as Url_Captura
+	Resident Actividades_Tmp1
+	Where
+		WildMatch(Tipo_Actividad, 'ACTIVIDADES DE LA COMPETENCIA', 'ACTIVIDADES PROPIAS SPB');
+	DROP Table Actividades_Tmp1;
+
+/*---------------Agrupar fotos del mismo Registro----------------*/
+NoConcatenate
+Actividades_Tmp3:
+	LOAD
+	    Empresa,							
+		Categoria,								
+		Marca,									
+		Tipo_Actividad,							
+		Observaciones,						
+		Subtipo_Actividad,						
+		Id_Sucursal,								
+		Id_Usuario,								
+		Fecha,									
+		ID_Registro,								
+		Concat(Url_Captura,' - ')		as	Url_CapturaConcatenado			
+	Resident Actividades_Tmp2
+	Group by
+	    Empresa,								
+		Categoria,								
+		Marca,									
+		Tipo_Actividad,							
+		Observaciones,						
+		Subtipo_Actividad,						
+		Id_Sucursal,								
+		Id_Usuario,								
+		Fecha,									
+		ID_Registro;
+	DROP Table Actividades_Tmp2;
+
+/*------Dejar una sola foto-------*/
+NoConcatenate
+Actividades_Tmp4:
+	LOAD
+	    Empresa,								
+		Categoria,								
+		Marca,									
+		Tipo_Actividad,							
+		Observaciones,							
+		Subtipo_Actividad,						
+		Id_Sucursal,								
+		Id_Usuario,								
+		Fecha,									
+		ID_Registro,								
+		SubField(Url_CapturaConcatenado,' - ',1)		as	Url_Captura		
+	Resident Actividades_Tmp3;
+	DROP Table Actividades_Tmp3;	
+
+/*----------*/
+NoConcatenate
+Actividades:
+	LOAD
+		Id_Sucursal&'-'&Id_Usuario&'-'&Fecha	as CK.Key1,
+		Empresa                                 as Actividades.Empresa,
+		Categoria								as Actividades.Categoria,
+		Marca									as Actividades.Marca,
+		Tipo_Actividad							as Actividades.Tipo_Actividad,
+		Observaciones							as Actividades.Observaciones,
+		Subtipo_Actividad						as Actividades.Subtipo_Actividad,
+		Id_Sucursal								as Actividades.Id_Sucursal,
+		Id_Usuario								as Actividades.Id_Usuario,
+		Fecha									as Actividades.Fecha,
+		ID_Registro								as Actividades.ID_Registro,
+		Url_Captura								as Actividades.Url_Captura
+	Resident Actividades_Tmp4;
+	DROP Table Actividades_Tmp4;
+
+STORE Actividades INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\_Actividades_$(Anno)$(Mes).qvd];
+Drop Table Actividades;

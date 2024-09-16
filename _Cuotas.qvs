@@ -1,0 +1,29 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Creación Cuotas
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			william_giraldo@Eficacia.com.co
+Fecha			03/03/2023 'DD/MM/YYYY'
+Estado:         Inactivo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Cuotas_Tmp1:
+    LOAD
+        [ID ASESOR]             as Id_Asesor, 
+        CUOTA                   as Cuota, 
+        AÑO&'-'&Num(MES_,'00')  as Periodo
+    FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Sugeridos.qvd] 
+    (qvd);
+
+NoConcatenate
+Cuotas:
+    LOAD
+        Id_Asesor&'-'&Periodo   as Key3,
+        Id_Asesor               as Cuotas.Id_Asesor,
+        Cuota                   as Cuotas.Cuota,
+        Periodo                 as Cuotas.Periodo
+    Resident Cuotas_Tmp1;
+    drop Table Cuotas_Tmp1; 
+ 
+ STORE Cuotas INTO  [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Cuotas.qvd];
+ DROP Table Cuotas;

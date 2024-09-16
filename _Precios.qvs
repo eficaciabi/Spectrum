@@ -1,0 +1,84 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Precios
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			02/04/2020 'DD/MM/YYYY'
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Precios_Tmp1:
+	LOAD
+		ID_SUCURSAL 				as IdSucursal, 
+		ID_SUPERVISOR				as IdPersonal,
+		ID_PRODUCTO 				as IdProducto,
+		FECHA_INICIAL				as _Fecha,
+		PRODUCTO					as Producto,
+		PRECIO						as Valor,
+		TIPO_PROMOCION				as TipoPromocion,
+		OBSERVACION					as Observacion
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\Precios_$(Anno)$(Mes)*.qvd]
+    (qvd);
+
+/*---------*/
+NoConcatenate
+Precios_Tmp2:
+	LOAD
+		IdSucursal, 
+		IdPersonal,
+		IdProducto,
+		IF(isnull(TipoPromocion),'PRECIO REGULAR','PRECIO EN PROMOCIÓN') as TipoPromocion,
+		Capitalize(Observacion)                                 as Observacion,
+		DATE(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')	as Fecha,	
+		Capitalize(Producto)									as Producto,
+		Num#(Valor)											    as Precio
+	Resident Precios_Tmp1
+	Where
+	   Num#(Valor) > 0
+	   And Not WildMatch(Valor, 'Agotado', 'No Manejante', 'NP');
+	Drop Table Precios_Tmp1;
+
+/*---------*/	
+NoConcatenate
+Precios_Tmp3:
+	LOAD
+		IdProducto,
+		Mode(Precio)		as Precio_Moda,
+		Avg(Precio)			as Precio_Promedio
+	Resident Precios_Tmp2
+	Group By
+		IdProducto;
+
+Left Join(Precios_Tmp3)
+	LOAD
+		IdSucursal, 
+		IdPersonal,
+		IdProducto,
+		Fecha,	
+		Producto,
+		TipoPromocion,
+		Observacion,
+		Precio
+	Resident Precios_Tmp2;
+	Drop Table Precios_Tmp2;
+   
+/*---------*/
+NoConcatenate
+Precios:
+    LOAD
+        IdSucursal&'-'&IdPersonal&'-'&IdProducto&'-'&Fecha                  as CK.Key2,
+        IdSucursal			                                                as Precios.Id_Sucursal,
+        IdPersonal			                                                as Precios.Id_Usuario,
+        IdProducto			                                                as Precios.Id_Producto,
+        Fecha					                                            as Precios.Fecha,
+        Producto				                                            as Precios.Producto,
+        Precio					                                            as Precios.Valor,
+		TipoPromocion														as Precios.TipoPromocion,
+		Observacion															as Precios.Observacion,
+		Precio_Moda                                             			as Precios.Precio_Moda,
+		Precio_Promedio                                         			as Precios.Precio_Promedio
+    Resident Precios_Tmp3;
+    DROP Table Precios_Tmp3;
+
+STORE Precios INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Precios_$(Anno)$(Mes).qvd];
+Drop Table Precios;

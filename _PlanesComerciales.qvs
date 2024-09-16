@@ -1,0 +1,431 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion PlanesComerciales
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			2019/07/20
+Estado:         Inactivo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+NullAsValue URL_FOTO;
+set NullValue='Sin Foto';
+
+/* -------------------- */
+Map_PuntoVenta:
+	Mapping
+		LOAD
+			PUNTO_VENTA_ID,
+			NOMBRE
+		FROM 
+		[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/IPV_PuntoVenta.qvd]
+		(qvd);
+
+PlanesComerciales_Tmp1:
+    LOAD 
+        ID_ASESOR_REPORTE, 
+        ID_EVENTO,
+        EST_SECUENCIA,
+        ID_SUBTIPO_IMPLEMENTACION,
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        PUNTO_VENTA_ID,
+        SUBTIPO_IMPLEMENTACION, 
+        ID_ASESOR_RESPONSABLE,
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA, 
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        FECHA_REPORTE,
+        EJE_ID,
+        TIPO_REPORTE
+    FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\PlanesComerciales_*.qvd]
+    (qvd);
+
+/* -------------------- */
+Parametrizacion_Tmp1:
+    LOAD 
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        ID_PV, 
+        Applymap('Map_PuntoVenta', ID_PV, Null())	as NOMBRE_PV,
+        TIPO_IMPLEMENTACION,
+        CATEGORIA,
+        SUBCATEGORIA,
+        PARTICIPACION_PLANEADA, 
+        SUBTIPO_IMPLEMENTACION, 
+        CANTIDAD,   
+        MARCA,
+        ESTADO
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Parametrizacion_Planes.qvd]
+    (qvd);
+
+/* -------------------- */
+RegistroFotos_Tmp1:
+    LOAD
+        EJE_ID,
+        URL_FOTO
+    FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/RegistroFotografico_PlanesComerciales_*.qvd]
+    (qvd);
+
+/* -------------------- */
+Map_PuntoVenta:
+	Mapping
+		LOAD
+			PUNTO_VENTA_ID,
+			NOMBRE
+		FROM 
+		[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/IPV_PuntoVenta.qvd]
+		(qvd);
+
+/*-------------------*/
+NoConcatenate
+RegistroFotos_Tmp2:
+    LOAD
+        EJE_ID,
+        IF(IsNull(URL_FOTO), 'Sin Foto', URL_FOTO)	as URL_FOTO
+    Resident RegistroFotos_Tmp1;
+    Drop Table RegistroFotos_Tmp1;
+
+/* --- Calculamos el ultimo registro para las Capturas --- */
+NoConcatenate
+PlanesComerciales_Tmp2:
+    LOAD
+        PUNTO_VENTA_ID&ID_ASESOR_RESPONSABLE&EST_SECUENCIA&ID_EVENTO&ID_SUBTIPO_IMPLEMENTACION 	as Ck.llaveUnicos,
+        Date(Max(FECHA_REPORTE),'YYYY/MM/DD')													as FECHA
+    Resident PlanesComerciales_Tmp1
+    Where 
+        TIPO_REPORTE like 'cierre'
+    Group By 
+        PUNTO_VENTA_ID,
+        ID_ASESOR_RESPONSABLE,
+        EST_SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION;
+
+Left Join(PlanesComerciales_Tmp2)
+    LOAD Distinct
+        PUNTO_VENTA_ID&ID_ASESOR_RESPONSABLE&EST_SECUENCIA&ID_EVENTO&ID_SUBTIPO_IMPLEMENTACION 	as Ck.llaveUnicos,
+        Date(FECHA_REPORTE,'YYYY/MM/DD') 														as FECHA,
+        *
+    Resident PlanesComerciales_Tmp1;
+    DROP Table PlanesComerciales_Tmp1;
+
+/*-----------*/
+/* --- Tomamos los registros que coinciden con lo que se parametrizo --- */
+NoConcatenate
+PlanesComerciales_Tmp3:
+    LOAD Distinct
+        SECUENCIA&ID_EVENTO&ID_SUBTIPO_IMPLEMENTACION										as Ck.Key,
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        ID_PV, 
+        NOMBRE_PV																			as PDV_VISITAR,
+        CATEGORIA,
+        Capitalize(SUBCATEGORIA)															as SUBCATEGORIA,
+        Capitalize(TIPO_IMPLEMENTACION)														as TIPO_IMPLEMENTACION, 
+        Capitalize(SUBTIPO_IMPLEMENTACION)  												as SUBTIPO_IMPLEMENTACION, 
+        CANTIDAD,   
+        MARCA,
+        ESTADO
+    Resident Parametrizacion_Tmp1
+    Where 
+        PARTICIPACION_PLANEADA <> 0;
+    DROP Table Parametrizacion_Tmp1;
+
+Left Join(PlanesComerciales_Tmp3)
+    LOAD
+        EST_SECUENCIA&ID_EVENTO&ID_SUBTIPO_IMPLEMENTACION   as Ck.Key,
+        Applymap('Map_PuntoVenta', PUNTO_VENTA_ID, Null())	as PDV_VISITADO,
+        FECHA,
+        Day(FECHA)											as Dia,
+        Month(FECHA)										as Mes,
+        Year(FECHA)											as Año,
+        ID_ASESOR_REPORTE, 
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        Capitalize(CAUSAL_DE_NO_CUMPLIMIENTO_IMPL) 			as CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        Capitalize(CAUSAL_NO_CUMPLE_ESTRATEGIA) 			as CAUSAL_NO_CUMPLE_ESTRATEGIA, 
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        EJE_ID
+    Resident PlanesComerciales_Tmp2;
+    DROP Table PlanesComerciales_Tmp2;
+
+/*-----------*/
+NoConcatenate
+PlanesComerciales_Tmp4:
+    LOAD
+        *,
+        'Pendientes'	as Concepto
+    Resident  PlanesComerciales_Tmp3
+    Where 
+        IsNull(FECHA) = True();
+
+Outer Join (PlanesComerciales_Tmp4)
+    LOAD
+        *,
+        'Implementadas'	as Concepto
+    Resident  PlanesComerciales_Tmp3
+    Where 
+        IsNull(FECHA) = False();
+    Drop Table PlanesComerciales_Tmp3;
+
+/*----------*/
+NoConcatenate
+PlanesComerciales_Tmp5:
+    LOAD
+        *,
+        If(PDV_VISITAR=PDV_VISITADO,
+            'Visita Ok','Visita Pendiente')						as ValidacionVisita
+    Resident PlanesComerciales_Tmp4;
+    Drop table PlanesComerciales_Tmp4;
+
+Left Join (PlanesComerciales_Tmp5)
+    LOAD
+        EJE_ID,
+        URL_FOTO
+    Resident RegistroFotos_Tmp2;
+    Drop Table RegistroFotos_Tmp2;
+
+/*--------------------*/
+NoConcatenate
+PlanesComerciales_Tmp6:
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        FECHA,
+        ID_PV, 
+        ID_ASESOR_REPORTE, 
+        PDV_VISITAR,
+        PDV_VISITADO,
+        ValidacionVisita,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        TIPO_IMPLEMENTACION, 
+        SUBTIPO_IMPLEMENTACION, 
+        CANTIDAD, 
+        CATEGORIA, 
+        SUBCATEGORIA,
+        MARCA,
+        ESTADO,
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA,
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        EJE_ID,
+        URL_FOTO,
+        Concepto
+    Resident PlanesComerciales_Tmp5;
+    DROP Table PlanesComerciales_Tmp5;
+
+/*--------------------*/
+Flag:
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        1							as Flag,
+        FirstValue(EJE_ID)			as EJE_ID,
+        FirstValue(URL_FOTO)		as URL_FOTO
+    Resident PlanesComerciales_Tmp6
+    Group By 
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION;
+
+/*--------------------*/
+NoConcatenate
+PlanesComerciales_Tmp7:
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        IF(isnull(FECHA),Date(Today(),'YYYY/MM/DD') ,FECHA) as FECHA,
+        IF(isnull(ID_ASESOR_REPORTE),'X',ID_ASESOR_REPORTE) as ID_ASESOR_REPORTE,
+        ID_PV, 
+        PDV_VISITAR,
+        PDV_VISITADO,
+        ValidacionVisita,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        TIPO_IMPLEMENTACION, 
+        SUBTIPO_IMPLEMENTACION,
+        CANTIDAD, 
+        CATEGORIA, 
+        SUBCATEGORIA,
+        MARCA,
+        ESTADO,
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA,
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        EJE_ID,
+        URL_FOTO,
+        Concepto
+    Resident PlanesComerciales_Tmp6;
+    DROP Table PlanesComerciales_Tmp6;
+
+Left Join(PlanesComerciales_Tmp7)
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        EJE_ID,
+        URL_FOTO,
+        Flag
+    Resident Flag;
+    DROP Table Flag;
+
+/*--------------------*/
+NoConcatenate
+PlanesComerciales_Tmp8:
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        FECHA,
+        ID_PV, 
+        ID_ASESOR_REPORTE, 
+        PDV_VISITAR,
+        PDV_VISITADO,
+        ValidacionVisita,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        TIPO_IMPLEMENTACION, 
+        SUBTIPO_IMPLEMENTACION, 
+        CANTIDAD, 
+        CATEGORIA, 
+        SUBCATEGORIA,
+        MARCA,
+        ESTADO,
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA,
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        EJE_ID,
+        URL_FOTO,
+        Concepto,
+        1									as Flag
+    Resident PlanesComerciales_Tmp7
+    Where 
+        IsNull(EJE_ID);
+
+Concatenate
+    LOAD
+        SECUENCIA,
+        ID_EVENTO,
+        ID_SUBTIPO_IMPLEMENTACION,
+        FECHA,
+        ID_PV, 
+        ID_ASESOR_REPORTE, 
+        PDV_VISITAR,
+        PDV_VISITADO,
+        ValidacionVisita,
+        NOMBRE_EVENTO, 
+        FECHA_INICIO, 
+        FECHA_FIN, 
+        TIPO_IMPLEMENTACION, 
+        SUBTIPO_IMPLEMENTACION,
+        CANTIDAD, 
+        CATEGORIA, 
+        SUBCATEGORIA,
+        MARCA,
+        ESTADO,
+        CUMPLE_CON_LA_IMPLEMENTACION, 
+        CANTIDAD_IMPLEMENTACION, 
+        OTRO_TIPO_SUBTIPO, 
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL, 
+        TIPO_GESTION_IMPLEMENTACION, 
+        CUMPLE_ESTRATEGIA, 
+        CANTIDAD_ESTRATEGIA, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA,
+        TIPO_GESTION_ESTRATEGIA, 
+        NOVEDAD,
+        EJE_ID,
+        URL_FOTO,
+        Concepto,
+        Flag
+    Resident PlanesComerciales_Tmp7
+    Where 
+        not IsNull(EJE_ID);
+    DROP Table PlanesComerciales_Tmp7;
+
+/*--------------------*/
+NoConcatenate
+PlanesComerciales:
+    LOAD
+        ID_PV&'-'&ID_ASESOR_REPORTE&'-'&FECHA   as CK.Key1,
+        FECHA									as PlanesComerciales.Fecha,
+        ID_PV									as PlanesComerciales.Id_Sucursal, 
+        ID_ASESOR_REPORTE						as PlanesComerciales.Id_Usuario, 
+        PDV_VISITAR								as [PlanesComerciales.Pdv a Visitar],
+        PDV_VISITADO							as [PlanesComerciales.Pdv Visitado],
+        ValidacionVisita						as PlanesComerciales.ValidacionVisita,
+        NOMBRE_EVENTO							as PlanesComerciales.NombreEvento, 
+        FECHA_INICIO							as PlanesComerciales.FechaInicio, 
+        FECHA_FIN								as PlanesComerciales.FechaFin, 
+        TIPO_IMPLEMENTACION						as PlanesComerciales.TipoImplementacion, 
+        SUBTIPO_IMPLEMENTACION					as PlanesComerciales.SubTipo_Implementacion, 
+        CANTIDAD								as PlanesComerciales.Cantidad, 
+        CATEGORIA								as PlanesComerciales.Categoria, 
+        SUBCATEGORIA							as PlanesComerciales.SubCategoria,
+        MARCA									as PlanesComerciales.Marca,
+        ESTADO									as PlanesComerciales.Estado,
+        CUMPLE_CON_LA_IMPLEMENTACION			as PlanesComerciales.Cumple_Implementacion, 
+        CANTIDAD_IMPLEMENTACION					as PlanesComerciales.Cantidad_Implementacion, 
+        OTRO_TIPO_SUBTIPO						as PlanesComerciales.Otro_TipoSubtipo, 
+        CAUSAL_DE_NO_CUMPLIMIENTO_IMPL			as PlanesComerciales.Causar_NoCumple_Imple, 
+        TIPO_GESTION_IMPLEMENTACION				as PlanesComerciales.TipoGestion_Imple, 
+        CUMPLE_ESTRATEGIA						as PlanesComerciales.CumpleEstrategia, 
+        CANTIDAD_ESTRATEGIA						as PlanesComerciales.CantidadEstrategia, 
+        CAUSAL_NO_CUMPLE_ESTRATEGIA				as PlanesComerciales.Causal_NoCumple_Estrategia,
+        TIPO_GESTION_ESTRATEGIA					as PlanesComerciales.TipoGestion_Estrategia, 
+        NOVEDAD									as PlanesComerciales.Novedad,
+        URL_FOTO								as PlanesComerciales.Url_Captura,
+        Flag									as PlanesComerciales.Flag,
+        Concepto								as PlanesComerciales.Concepto
+    Resident PlanesComerciales_Tmp8;
+    DROP Table PlanesComerciales_Tmp8;
+
+STORE PlanesComerciales INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\_PlanesComerciales.qvd];
+Drop Table PlanesComerciales; 

@@ -1,0 +1,45 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Conversor Spectrum Sharepoint-QVD
+Desarrollador: 	Oscar Ivan Pachon
+Fecha			2023/08/22 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Exhibiciones:
+    LOAD
+        [Subtipo Actividad],
+        Valor	
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\SIS Hoja Exhibiciones.xlsx]
+    (ooxml, embedded labels, table is "tabla precios");
+    
+STORE Exhibiciones INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Exhibiciones.qvd] (qvd);
+Drop Table Exhibiciones;
+
+Cuotas:
+    LOAD
+        AÑO, 
+        MES, 
+        [ID COORDINADOR], 
+        [NOMBRE COORDINADOR], 
+        [SUPERVISION VIRTUAL], 
+        [N° DE PDV OBJETIVO], 
+        [SUPERVISION PRESENCIAL]
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)\SGI\Colombia\SPECTRUM\cuotas.xlsx]
+    (ooxml, embedded labels, table is Hoja2);
+    
+STORE Cuotas INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Cuotas.qvd] (qvd);
+Drop Table Cuotas;
+
+Sugeridos:
+    LOAD
+        [ID ASESOR], 
+        CUOTA, 
+        MES_, 
+        AÑO
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI\Colombia\SPECTRUM\Hoja_Sugeridos.xlsx]
+    (ooxml, embedded labels, table is SUGERIDOS);
+    
+STORE Sugeridos INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Sugeridos.qvd] (qvd);
+Drop Table Sugeridos;

@@ -1,0 +1,109 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Bitácoras
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			02/04/2020 'DD/MM/YYYY'
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Bitacoras_Tmp1:
+    LOAD
+        ID_REGISTRO         as Id_Registro,
+        ID_SUCURSAL         as Id_Sucursal,
+        ID_ASESOR           as Id_Usuario,
+        Date(left(date(FECHA_VISITA ,'DD/MM/YYYY'),10),'YYYY/MM/DD')		as _Fecha,
+        PREGUNTA            as Pregunta,
+        CATEGORIA           as Categoria,
+        RESPUESTA           as Respuesta
+    FROM [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\Bitacora_$(Anno)$(Mes)*.qvd]
+    (qvd);
+
+Map_Asesor_Tmp1:
+    Mapping
+        LOAD 
+            Asesor.Id_Usuario,
+            Asesor.Id_Jefe
+        FROM
+        [lib://COMP_DataMart (eficacia_admin_analitica)\SGI\Colombia\SPECTRUM\_Asesor.qvd]
+        (qvd);
+
+Cuotas_Tmp1:
+    LOAD  
+        AÑO						as Ano, 
+        num(MES,'00')  			as Mes, 
+        [ID COORDINADOR]			as Id_Jefe, 
+        [NOMBRE COORDINADOR], 
+        [SUPERVISION VIRTUAL]		as SupervisionVirtual, 
+        [N° DE PDV OBJETIVO]		as PdvObjetivo, 
+        [SUPERVISION PRESENCIAL]	as SupervisionPresencial
+    FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sh_Cuotas.qvd] 
+    (qvd);
+
+/***************************INICIA TRANSFORMACION*********************/
+/*----------*/
+NoConcatenate
+Bitacoras_Tmp2:
+    LOAD
+    	ApplyMap('Map_Asesor_Tmp1',Id_Usuario,Null())			as  Id_Jefe,
+        Id_Registro,
+        Id_Sucursal,
+        Id_Usuario,
+        _Fecha,
+        Year(_Fecha)											as Ano,
+        Num(Month(_Fecha),'00')									as Mes, 
+        Capitalize(Pregunta)        							as Pregunta,
+        Capitalize(Categoria)       							as Categoria,
+        Respuesta
+    Resident Bitacoras_Tmp1
+    Where
+        not WildMatch(Pregunta, 'OBSERVACION', 'OBSERVACIÓN')
+    and _Fecha >= '2019/10/01';
+    DROP Table Bitacoras_Tmp1;
+
+/*----------*/
+NoConcatenate
+Bitacoras_Tmp3:
+    LOAD
+    	Ano&Mes&Id_Jefe		as key,
+    	Id_Jefe,
+        Id_Registro,
+        Id_Sucursal,
+        Id_Usuario,
+        _Fecha,
+        Ano,
+        Mes, 
+        Pregunta,
+        Categoria,
+        Respuesta
+    Resident Bitacoras_Tmp2;
+    DROP Table Bitacoras_Tmp2;
+    
+Left Join
+    LOAD 
+        Ano&Mes&Id_Jefe		as key, 
+        SupervisionVirtual, 
+        PdvObjetivo, 
+        SupervisionPresencial
+    Resident Cuotas_Tmp1;
+    DROP Table Cuotas_Tmp1;
+
+/*----------*/
+NoConcatenate
+Bitacoras:
+    LOAD
+        Id_Sucursal&'-'&Id_Usuario&'-'&_Fecha   as CK.Key1,
+        Id_Registro                             as Bitacoras.Id_Registro,
+        Id_Sucursal                             as Bitacoras.Id_Sucursal,
+        Id_Usuario                              as Bitacoras.Id_Usuario,
+        _Fecha                                  as Bitacoras.Fecha,
+        Pregunta                                as Bitacoras.Pregunta,
+        Categoria                               as Bitacoras.Categoria,
+        Respuesta                               as Bitacoras.Respuesta,
+        SupervisionVirtual						as Bitacoras.SupervisionVirtual,
+        PdvObjetivo								as Bitacoras.PdvObjetivo,
+        SupervisionPresencial					as Bitacoras.SupervisionPresencial
+    Resident Bitacoras_Tmp3;
+    DROP Table Bitacoras_Tmp3;
+
+STORE Bitacoras INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Bitacoras_$(Anno)$(Mes).qvd];
+Drop Table Bitacoras;

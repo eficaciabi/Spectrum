@@ -1,0 +1,55 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Productos IPV
+Desarrollador: 	Oscar Iván Pachón Triana
+Email:			oscar_pachon@Eficacia.com.co
+Fecha			2022/12/13 (YYYY/MM/DD)
+Estado:         Inactivo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Monitoreo_Tmp_1:
+    LOAD 
+        ASESOR_ID as id_usuario, 
+        PUNTO_VENTA_ID as id_Sucursal, 
+        TIPO_RUTA, 
+        CLIENTE, 
+        Date(left(FECHA ,10), 'YYYY/MM/DD') 	AS Fecha, 
+        ESTADO, 
+        HORA_INICIO AS hora_inicio, 
+        HORA_FIN    AS hora_fin, 
+        TIEMPO_EN_PV as tiempo_en_pv, 
+        AGOTADOS, 
+        PRECIOS, 
+        INVENTARIOS, 
+        PARTICIPACION, 
+        SUGERIDOS, 
+        ACTIVIDADES_PV as actividades_pv, 
+        ENCUESTAS, 
+        BITACORAS, 
+        BANCO_DE_CONOCIMIENTO, 
+        PROCESADOS, 
+        PLANES_COMERCIALES, 
+        COMPROMISOS, 
+        VISITAS, 
+        NOVEDADES, 
+        COPIDROGAS, 
+        MOMENTOS
+    FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\SPECTRUM\Monitoreo.qvd]
+    (qvd);
+
+NoConcatenate
+Monitoreo:
+    LOAD Distinct
+        id_Sucursal&'-' &id_usuario& '-' &Fecha     as CK.Key1,
+        id_Sucursal                                 as Monitoreo.id_Sucursal,
+        id_usuario                                  as Monitoreo.id_usuario,
+        Fecha                                       as Monitoreo.Fecha,
+        hora_inicio                                 as Monitoreo.hora_inicio,
+        hora_fin									as Monitoreo.hora_fin,
+        tiempo_en_pv								as Monitoreo.tiempo_en_pv, 
+        actividades_pv        						as Monitoreo.actividades_pv
+    Resident Monitoreo_Tmp_1;
+    Drop Table Monitoreo_Tmp_1;
+
+STORE Monitoreo INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Monitoreo.qvd];
+Drop Table Monitoreo;

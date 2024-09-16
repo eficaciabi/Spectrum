@@ -1,0 +1,50 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Productos IPV
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			2020/04/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Producto_Tmp1:
+    LOAD
+        PRODUCTO_ID     as Id_Producto,
+        MARCA           as Marca,
+        LINEA           as Linea,
+        DESCRIPCION     as Descripcion,
+        EMPRESA         as Empresa,
+        CATEGORIA		as Categoria,
+        COMPETENCIA     as TipoEmpresa
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/IPV_Producto.qvd]
+    (qvd);
+
+/**************** Transformación ****************/
+NoConcatenate
+Producto_Tmp2:
+    LOAD
+        Id_Producto,
+        Capitalize(Marca)           as Marca,
+        Capitalize(Linea)           as Linea,
+        Capitalize(Descripcion)     as Descripcion,
+        Capitalize(Empresa)         as Empresa,
+        Capitalize(Categoria)		as Categoria,
+        Capitalize(TipoEmpresa)		as TipoEmpresa
+    Resident Producto_Tmp1;
+    Drop Table Producto_Tmp1;
+
+/*----------*/
+NoConcatenate
+Producto:
+    LOAD
+        Id_Producto         as SK.Producto,
+        Marca               as Producto.Marca,
+        Linea               as Producto.Linea,
+        Descripcion         as Producto.Descripcion,
+        Empresa             as Producto.Empresa,
+        Categoria			as Producto.Categoria,
+        TipoEmpresa         as Producto.TipoEmpresa
+    Resident Producto_Tmp2;
+    Drop Table Producto_Tmp2; 
+
+STORE Producto INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Producto.qvd];
+Drop Table Producto;

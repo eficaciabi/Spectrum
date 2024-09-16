@@ -1,0 +1,44 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformación Bitácora
+Desarrollador: 	Juan Camilo Domínguez Pacheco
+Email:			Juanc_dominguez@Eficacia.com.co
+Fecha			02/04/2020 'DD/MM/YYYY'
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+
+Bitacora_Tmp1:
+LOAD
+    ID_SUCURSAL   as Id_Sucursal,
+    ID_USUARIO    as Id_Usuario,
+    FECHA_VISITA  as _Fecha, 
+    ID_REGISTRO   as Id_Registro
+FROM
+[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/En_Bitacora_$(Anno)$(Mes)*.qvd]
+(qvd);
+
+/*---------*/
+NoConcatenate
+Bitacora_Tmp2:
+LOAD
+    Id_Sucursal,
+    Id_Usuario,
+    DATE(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')            as Fecha,
+    Id_Registro
+Resident Bitacora_Tmp1;
+Drop Table Bitacora_Tmp1;
+
+/*-----------*/
+NoConcatenate
+Bitacora:
+LOAD Distinct
+     Id_Sucursal&'-'&Id_Usuario&'-'&Fecha		    as CK.Key1,
+     Id_Sucursal                                    as Bitacora.Id_Sucursal,
+     Id_Usuario                                     as Bitacora.Id_Usuario,
+     Fecha                                          as Bitacora.Fecha,  
+     Id_Registro                                    as Bitacora.Id_Registro
+Resident Bitacora_Tmp2;
+Drop Table Bitacora_Tmp2;
+
+STORE Bitacora INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Encuesta_Bitacoras_$(Anno)$(Mes).qvd];
+Drop Table Bitacora;

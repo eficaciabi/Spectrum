@@ -1,0 +1,49 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Sugeridos
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			willliam_giraldo@Eficacia.com.co
+Fecha			2022/03/10 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Sugeridos_Tmp1:
+	LOAD
+		CANTIDAD			as Cantidad,
+		PRECIO_TOTAL		as PTotal,
+		ID_PEDIDO			as Pedido,
+		ID_PRODUCTO			as IDProducto,
+		ID_SUCURSAL			as IDSucursal,
+		ID_ASESOR			as IDPersona,
+		FECHA_CAPTURA		as _Fecha
+	FROM [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Sugeridos_$(Anno)$(Mes)*.qvd]
+	(qvd);
+
+/*----------*/
+Sugeridos_Tmp2:
+	LOAD
+		Cantidad,
+		PTotal,
+		Pedido,
+		IDProducto,
+		IDSucursal,
+		IDPersona,
+		Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')		as Fecha
+	Resident Sugeridos_Tmp1;
+	Drop Table Sugeridos_Tmp1;
+
+/*----------*/
+Sugeridos:
+	LOAD
+		IDSucursal&'-'&IDPersona&'-'&IDProducto&'-'&Fecha	    as CK.Key2,
+		IDPersona&'-'&Year(Fecha)&'-'&Num(Month(Fecha),'00')    as Key3,
+		Cantidad                                                as Sugeridos.Cantidad,
+		PTotal											        as Sugeridos.PTotal,
+		Pedido											        as Sugeridos.Pedido,
+		IDProducto										        as Sugeridos.IDProducto,
+		IDSucursal										        as Sugeridos.IDSucursal,
+		IDPersona										        as Sugeridos.IDPersona,
+		Fecha											        as Sugeridos.Fecha
+	Resident Sugeridos_Tmp2;
+	Drop Table Sugeridos_Tmp2;
+
+STORE Sugeridos INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/_Sugeridos_$(Anno)$(Mes).qvd];
+Drop Table Sugeridos;

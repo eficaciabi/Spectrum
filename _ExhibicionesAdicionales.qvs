@@ -1,0 +1,67 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformación Exhibiciones Adicionales
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Email:			William_giraldo@Eficacia.com.co
+Fecha			20/03/2020 'DD/MM/YYYY'
+Estado: 		Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+ExhibicionesAdicionales_Tmp1:
+	LOAD 
+		EMPRESA					as Empresa,
+		CATEGORIA				as Categoria,
+		MARCA					as Marca,
+		TIPO_ACTIVIDAD			as Tipo_Actividad,
+		OBSERVACIONES			as Observaciones,
+		SUBTIPO_ACTIVIDAD		as Subtipo_Actividad,
+		ID_SUCURSAL				as Id_Sucursal,
+		ID_USUARIO				as Id_Usuario,
+		FECHA_VISITA			as _Fecha_Visita,
+		ID_REGISTRO				as ID_Registro,
+		NOMBRE_ARCHIVO			as Url_Captura
+	FROM [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/SPECTRUM/Actividades_$(Anno)$(Mes)*.qvd]
+	(qvd);
+
+/*----------*/
+NoConcatenate
+ExhibicionesAdicionales_Tmp2:
+	LOAD
+		Capitalize(Empresa)										as Empresa,
+		Capitalize(Categoria)									as Categoria,
+		Capitalize(Marca)										as Marca,
+		Capitalize(Tipo_Actividad)                              as Tipo_Actividad,
+		Observaciones,
+		Capitalize(Subtipo_Actividad)							as Subtipo_Actividad,
+		Applymap('Map_PrecioExhibicion', Subtipo_Actividad, 0)	as ValorExhibicion,
+		Id_Sucursal,
+		Id_Usuario,
+		Date(left(date(_Fecha_Visita,'DD/MM/YYYY'),10),'YYYY/MM/DD')	as Fecha,
+		ID_Registro,
+		'$(RutaServerUno)'&Date(_Fecha_Visita,'YYYY')&'/'&Date(_Fecha_Visita,'MM')&'/'&$(vCodCliente)&'/'&Url_Captura	as Url_Captura
+	Resident ExhibicionesAdicionales_Tmp1
+	Where
+		Tipo_Actividad like 'EXHIBICIONES GRATIS SPB';
+	DROP Table ExhibicionesAdicionales_Tmp1;
+
+/*----------*/
+NoConcatenate
+ExhibicionesAdicionales:
+	LOAD
+		Id_Sucursal&'-'&Id_Usuario&'-'&Fecha	as CK.Key1,
+		Empresa									as ExhibicionesAdicionales.Empresa,
+		Categoria								as ExhibicionesAdicionales.Categoria,
+		Marca									as ExhibicionesAdicionales.Marca,
+		Subtipo_Actividad						as ExhibicionesAdicionales.Subtipo_Actividad,
+		Observaciones							as ExhibicionesAdicionales.Observaciones,
+		Id_Sucursal								as ExhibicionesAdicionales.Id_Sucursal,
+		Id_Usuario								as ExhibicionesAdicionales.Id_Usuario,
+		Fecha									as ExhibicionesAdicionales.Fecha,
+		ID_Registro								as ExhibicionesAdicionales.ID_Registro,
+		Tipo_Actividad							as ExhibicionesAdicionales.Tipo,
+		ValorExhibicion							as ExhibicionesAdicionales.ValorExhibicion,
+		Url_Captura                             as ExhibicionesAdicionales.Url_Captura
+	Resident ExhibicionesAdicionales_Tmp2;
+	DROP Table ExhibicionesAdicionales_Tmp2;
+
+Store ExhibicionesAdicionales into [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia\SPECTRUM\_ExhibicionesAdicionales_$(Anno)$(Mes).qvd];
+Drop Table ExhibicionesAdicionales;
